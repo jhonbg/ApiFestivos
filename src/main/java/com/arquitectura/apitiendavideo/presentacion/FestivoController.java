@@ -22,30 +22,30 @@ public class FestivoController {
     @Autowired
     private FestivoService festivoService;
 
-    @GetMapping("/verificar/{anio}/{mes}/{dia}")
-    public ResponseEntity<String> verificarFestividad(@PathVariable int anio, @PathVariable int mes, @PathVariable int dia) {
-        LOGGER.info("Verificando festividad para {}-{}-{}", anio, mes, dia);
+    @GetMapping("/verificar/{año}/{mes}/{dia}")
+    public ResponseEntity<String> verificarFestividad(@PathVariable int año, @PathVariable int mes, @PathVariable int dia) {
+        LOGGER.info("Verificando festividad para {}-{}-{}", año, mes, dia);
 
         try {
-            LocalDate.of(anio, mes, dia); // Verificar si la fecha es válida
+            LocalDate.of(año, mes, dia); // Verificar si la fecha es válida
         } catch (DateTimeException e) {
-            LOGGER.error("Fecha no válida: {}-{}-{}", anio, mes, dia);
+            LOGGER.error("Fecha no válida: {}-{}-{}", año, mes, dia);
             return ResponseEntity.badRequest().body("Fecha no válida");
         }
 
-        boolean esFestivo = festivoService.esFestivo(anio, mes, dia);
+        boolean esFestivo = festivoService.esFestivo(año, mes, dia);
         String respuesta = esFestivo ? "Es Festivo" : "No es festivo";
 
-        if (!esFestivo && !fechaValida(anio, mes, dia)) {
+        if (!esFestivo && !fechaValida(año, mes, dia)) {
             respuesta = "No es una fecha válida";
         }
 
         return ResponseEntity.ok(respuesta);
     }
 
-    private boolean fechaValida(int anio, int mes, int dia) {
+    private boolean fechaValida(int año, int mes, int dia) {
         try {
-            LocalDate.of(anio, mes, dia);
+            LocalDate.of(año, mes, dia);
             return true;
         } catch (DateTimeException e) {
             return false;
