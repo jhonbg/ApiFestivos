@@ -10,6 +10,10 @@ import org.springframework.stereotype.Service;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.temporal.TemporalAdjusters;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @Service
 public class FestivoService {
@@ -63,5 +67,40 @@ public class FestivoService {
         } else {
             return LocalDate.of(año, 3, diaDomingoPascua);
         }
+    }
+
+    public List<Map<String, Object>> obtenerFestivosPorAno(int año) {
+        Iterable<Festivo> festivos = festivoCrudRepository.findAll();
+        List<Map<String, Object>> festivosDelAno = new ArrayList<>();
+
+        for (Festivo festivo : festivos) {
+            LocalDate fechaFestivo = null;
+            if (festivo.getIdtipo() == 1) { // Festivo fijo
+                fechaFestivo = LocalDate.of(año, festivo.getMes(), festivo.getDia());
+            } else if (festivo.getIdtipo() == 2) { // Ley de "Puente festivo"
+                fechaFestivo = LocalDate.of(año, festivo.getMes(), festivo.getDia());
+                if (fechaFestivo.getDayOfWeek().getValue() != 1) { // Si no es lunes
+                    fechaFestivo = fechaFestivo.with(TemporalAdjusters.next(DayOfWeek.MONDAY)); // Trasladar al próximo lunes
+                }
+            } else if (festivo.getIdtipo() == 3) { // Festivo basado en el domingo de Pascua
+                LocalDate domingoPascua = calcularDomingoPascua(año);
+                fechaFestivo = domingoPascua.plusDays(festivo.getDiaspascua());
+            } else if (festivo.getIdtipo() == 4) { // Festivo basado en el domingo de Pascua y Ley de "Puente festivo"
+                LocalDate domingoPascua = calcularDomingoPascua(año);
+                fechaFestivo = domingoPascua.plusDays(festivo.getDiaspascua());
+                if (fechaFestivo.getDayOfMonth() != festivo.getDia()) { // Si la fecha no coincide con el día especificado
+                    fechaFestivo = fechaFestivo.with(TemporalAdjusters.next(DayOfWeek.MONDAY)); // Trasladar al siguiente lunes
+                }
+            }
+            if (fechaFestivo != null && fechaFestivo.getYear() == año) {
+                Map<String, Object> festivoMap = new HashMap<>();
+                festivoMap.put("nombre", festivo.getNombre());
+                festivoMap.put("año", año);
+                festivoMap.put("mes", fechaFestivo.getMonthValue());
+                festivoMap.put("dia", fechaFestivo.getDayOfMonth());
+                festivosDelAno.add(festivoMap);
+            }
+        }
+        return festivosDelAno;
     }
 }

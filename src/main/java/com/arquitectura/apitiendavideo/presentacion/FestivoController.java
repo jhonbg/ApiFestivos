@@ -1,6 +1,7 @@
 package com.arquitectura.apitiendavideo.presentacion;
 
 import com.arquitectura.apitiendavideo.aplicacion.FestivoService;
+import com.arquitectura.apitiendavideo.core.dominio.Festivo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +14,10 @@ import org.slf4j.LoggerFactory;
 
 import java.time.DateTimeException;
 import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/festivos")
@@ -30,15 +35,11 @@ public class FestivoController {
             LocalDate.of(año, mes, dia); // Verificar si la fecha es válida
         } catch (DateTimeException e) {
             LOGGER.error("Fecha no válida: {}-{}-{}", año, mes, dia);
-            return ResponseEntity.badRequest().body("Fecha no válida");
+            return ResponseEntity.ok("No es una fecha válida");
         }
 
         boolean esFestivo = festivoService.esFestivo(año, mes, dia);
         String respuesta = esFestivo ? "Es Festivo" : "No es festivo";
-
-        if (!esFestivo && !fechaValida(año, mes, dia)) {
-            respuesta = "No es una fecha válida";
-        }
 
         return ResponseEntity.ok(respuesta);
     }
@@ -50,5 +51,11 @@ public class FestivoController {
         } catch (DateTimeException e) {
             return false;
         }
+    }
+
+    @GetMapping("/listado/{año}")
+    public ResponseEntity<List<Map<String, Object>>> listarFestivosPorAno(@PathVariable int año) {
+        List<Map<String, Object>> festivos = festivoService.obtenerFestivosPorAno(año);
+        return ResponseEntity.ok(festivos);
     }
 }
