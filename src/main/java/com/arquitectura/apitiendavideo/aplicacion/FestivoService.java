@@ -1,7 +1,8 @@
 package com.arquitectura.apitiendavideo.aplicacion;
 
 import com.arquitectura.apitiendavideo.core.dominio.Festivo;
-import com.arquitectura.apitiendavideo.core.interfaces.FestivoCrudRepository;
+import com.arquitectura.apitiendavideo.core.interfaces.repositorios.IFestivoRepositorio;
+import com.arquitectura.apitiendavideo.core.interfaces.servicios.IFestivoServicio;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -16,42 +17,66 @@ import java.util.List;
 import java.util.Map;
 
 @Service
-public class FestivoService {
+public class FestivoService implements IFestivoServicio {
     private static final Logger LOGGER = LoggerFactory.getLogger(FestivoService.class);
 
     @Autowired
-    private FestivoCrudRepository festivoCrudRepository;
+    private IFestivoRepositorio repositorio;
 
-    public boolean esFestivo(int año, int mes, int dia){
-        Iterable<Festivo> festivos = festivoCrudRepository.findAll();
-        for(Festivo festivo : festivos){
-            LocalDate fechaFestivo = null;
-            if(festivo.getIdtipo() == 1) { // Festivo fijo
-                fechaFestivo = LocalDate.of(año, festivo.getMes(), festivo.getDia());
-            }
-            else if(festivo.getIdtipo() == 2) { // Ley de "Puente festivo"
-                fechaFestivo = LocalDate.of(año, festivo.getMes(), festivo.getDia());
-                if(fechaFestivo.getDayOfWeek().getValue() != 1) { // Si no es lunes
-                    fechaFestivo = fechaFestivo.with(TemporalAdjusters.next(DayOfWeek.MONDAY)); // Trasladar al próximo lunes
-                }
-            }
-            else if(festivo.getIdtipo() == 3) { // Festivo basado en el domingo de Pascua
-                LocalDate domingoPascua = calcularDomingoPascua(año);
-                fechaFestivo = domingoPascua.plusDays(festivo.getDiaspascua());
-            }
-            else if(festivo.getIdtipo() == 4) { // Festivo basado en el domingo de Pascua y Ley de "Puente festivo"
-                LocalDate domingoPascua = calcularDomingoPascua(año);
-                fechaFestivo = domingoPascua.plusDays(festivo.getDiaspascua());
-                if (fechaFestivo.getDayOfMonth() != festivo.getDia()) { // Si la fecha no coincide con el día especificado
-                    fechaFestivo = fechaFestivo.with(TemporalAdjusters.next(DayOfWeek.MONDAY)); // Trasladar al siguiente lunes
-                }
-            }
-            if (fechaFestivo != null && fechaFestivo.isEqual(LocalDate.of(año, mes, dia))) {
-                LOGGER.info("Festivo encontrado: {}", festivo.getNombre());
-                return true; // Si encontramos un festivo, devolvemos true
+    public FestivoService(IFestivoRepositorio repositorio) {
+        this.repositorio = repositorio;
+    }
+
+
+    @Override
+    public List<Map<String, Object>> obtenerFestivosPorAno(int año) {
+        List<Map<String, Object>> festivosDelAno = new ArrayList<>();
+        for (Festivo festivo : repositorio.findAll()) {
+            LocalDate fechaFestivo = calcularFechaFestivo(festivo, año);
+            if (fechaFestivo != null && fechaFestivo.getYear() == año) {
+                Map<String, Object> festivoMap = new HashMap<>();
+                festivoMap.put("nombre", festivo.getNombre());
+                festivoMap.put("año", año);
+                festivoMap.put("mes", fechaFestivo.getMonthValue());
+                festivoMap.put("dia", fechaFestivo.getDayOfMonth());
+                festivosDelAno.add(festivoMap);
             }
         }
-        return false; // Si no encontramos ningún festivo, devolvemos false
+        return festivosDelAno;
+    }
+
+    @Override
+    public boolean esFestivo(int año, int mes, int dia) {
+            LocalDate fecha = LocalDate.of(año, mes, dia);
+            for (Festivo festivo : repositorio.findAll()) {
+                LocalDate fechaFestivo = calcularFechaFestivo(festivo, año);
+                if (fechaFestivo != null && fechaFestivo.isEqual(fecha)) {
+                    LOGGER.info("Festivo encontrado: {}", festivo.getNombre());
+                    return true;
+                }
+            }
+            return false;
+        }
+
+    @Override
+    public LocalDate calcularFechaFestivo(Festivo festivo, int año) {
+        LocalDate fechaFestivo = null;
+        if (festivo.getIdtipo() == 1) { // Festivo fijo
+            fechaFestivo = LocalDate.of(año, festivo.getMes(), festivo.getDia());
+        } else if (festivo.getIdtipo() == 2) { // Ley de "Puente festivo"
+            fechaFestivo = LocalDate.of(año, festivo.getMes(), festivo.getDia());
+            if (fechaFestivo.getDayOfWeek() != DayOfWeek.MONDAY) {
+                fechaFestivo = fechaFestivo.with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+            }
+        } else if (festivo.getIdtipo() == 3) { // Festivo basado en el domingo de Pascua
+            fechaFestivo = calcularDomingoPascua(año).plusDays(festivo.getDiaspascua());
+        } else if (festivo.getIdtipo() == 4) { // Festivo basado en el domingo de Pascua y Ley de "Puente festivo"
+            fechaFestivo = calcularDomingoPascua(año).plusDays(festivo.getDiaspascua());
+            if (fechaFestivo.getDayOfMonth() != festivo.getDia()) {
+                fechaFestivo = fechaFestivo.with(TemporalAdjusters.next(DayOfWeek.MONDAY));
+            }
+        }
+        return fechaFestivo;
     }
 
     private LocalDate calcularDomingoPascua(int año) {
@@ -67,40 +92,5 @@ public class FestivoService {
         } else {
             return LocalDate.of(año, 3, diaDomingoPascua);
         }
-    }
-
-    public List<Map<String, Object>> obtenerFestivosPorAno(int año) {
-        Iterable<Festivo> festivos = festivoCrudRepository.findAll();
-        List<Map<String, Object>> festivosDelAno = new ArrayList<>();
-
-        for (Festivo festivo : festivos) {
-            LocalDate fechaFestivo = null;
-            if (festivo.getIdtipo() == 1) { // Festivo fijo
-                fechaFestivo = LocalDate.of(año, festivo.getMes(), festivo.getDia());
-            } else if (festivo.getIdtipo() == 2) { // Ley de "Puente festivo"
-                fechaFestivo = LocalDate.of(año, festivo.getMes(), festivo.getDia());
-                if (fechaFestivo.getDayOfWeek().getValue() != 1) { // Si no es lunes
-                    fechaFestivo = fechaFestivo.with(TemporalAdjusters.next(DayOfWeek.MONDAY)); // Trasladar al próximo lunes
-                }
-            } else if (festivo.getIdtipo() == 3) { // Festivo basado en el domingo de Pascua
-                LocalDate domingoPascua = calcularDomingoPascua(año);
-                fechaFestivo = domingoPascua.plusDays(festivo.getDiaspascua());
-            } else if (festivo.getIdtipo() == 4) { // Festivo basado en el domingo de Pascua y Ley de "Puente festivo"
-                LocalDate domingoPascua = calcularDomingoPascua(año);
-                fechaFestivo = domingoPascua.plusDays(festivo.getDiaspascua());
-                if (fechaFestivo.getDayOfMonth() != festivo.getDia()) { // Si la fecha no coincide con el día especificado
-                    fechaFestivo = fechaFestivo.with(TemporalAdjusters.next(DayOfWeek.MONDAY)); // Trasladar al siguiente lunes
-                }
-            }
-            if (fechaFestivo != null && fechaFestivo.getYear() == año) {
-                Map<String, Object> festivoMap = new HashMap<>();
-                festivoMap.put("nombre", festivo.getNombre());
-                festivoMap.put("año", año);
-                festivoMap.put("mes", fechaFestivo.getMonthValue());
-                festivoMap.put("dia", fechaFestivo.getDayOfMonth());
-                festivosDelAno.add(festivoMap);
-            }
-        }
-        return festivosDelAno;
     }
 }

@@ -1,7 +1,6 @@
 package com.arquitectura.apitiendavideo.presentacion;
 
 import com.arquitectura.apitiendavideo.aplicacion.FestivoService;
-import com.arquitectura.apitiendavideo.core.dominio.Festivo;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -14,8 +13,6 @@ import org.slf4j.LoggerFactory;
 
 import java.time.DateTimeException;
 import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -31,9 +28,7 @@ public class FestivoController {
     public ResponseEntity<String> verificarFestividad(@PathVariable int año, @PathVariable int mes, @PathVariable int dia) {
         LOGGER.info("Verificando festividad para {}-{}-{}", año, mes, dia);
 
-        try {
-            LocalDate.of(año, mes, dia); // Verificar si la fecha es válida
-        } catch (DateTimeException e) {
+        if (!esFechaValida(año, mes, dia)) {
             LOGGER.error("Fecha no válida: {}-{}-{}", año, mes, dia);
             return ResponseEntity.ok("No es una fecha válida");
         }
@@ -44,18 +39,19 @@ public class FestivoController {
         return ResponseEntity.ok(respuesta);
     }
 
-    private boolean fechaValida(int año, int mes, int dia) {
+    @GetMapping("/listado/{año}")
+    public ResponseEntity<List<Map<String, Object>>> listarFestivosPorAno(@PathVariable int año) {
+        LOGGER.info("Listando festividades para el año {}", año);
+        List<Map<String, Object>> festivos = festivoService.obtenerFestivosPorAno(año);
+        return ResponseEntity.ok(festivos);
+    }
+
+    private boolean esFechaValida(int año, int mes, int dia) {
         try {
             LocalDate.of(año, mes, dia);
             return true;
         } catch (DateTimeException e) {
             return false;
         }
-    }
-
-    @GetMapping("/listado/{año}")
-    public ResponseEntity<List<Map<String, Object>>> listarFestivosPorAno(@PathVariable int año) {
-        List<Map<String, Object>> festivos = festivoService.obtenerFestivosPorAno(año);
-        return ResponseEntity.ok(festivos);
     }
 }
